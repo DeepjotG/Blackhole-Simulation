@@ -2,10 +2,11 @@
     layout (location = 0) in vec3 aPos;
 
     uniform mat4 model;
+    uniform mat4 ortho;
 
 
     void main()
     {
-        gl_Position = model * vec4(aPos, 1.0);
+        gl_Position = ortho * model * vec4(aPos, 1.0);
 
     }

@@ -5,6 +5,7 @@
 #include <vector>
 #include <cmath>
 #include <gl/GL.h>
+#include <tuple>
 
 using namespace std; 
 
@@ -49,6 +50,7 @@ struct Ray{
     glm::vec3 pos;
     unsigned int VAO, VBO;
     glm::mat4 model = glm::mat4(1.0f);
+    glm::vec4 color = glm::vec4(255.0f,255.0f,255.0f,1.0f);
 
     Ray(glm::vec3 position) {
         pos = position;
@@ -67,13 +69,14 @@ struct Ray{
 
     void draw(glm::vec3 translation, Shader Obj) {
         
+        
         model = glm::translate(model, translation);
-
         Obj.mat4("model", model);
+        Obj.vec4("ourColor", color);
 
 
         glEnable(GL_POINT_SIZE);
-        glPointSize(20.0f);
+        glPointSize(6.0f);
         glBindVertexArray(VAO);
         glDrawArrays(GL_POINTS, 0, 1);
         glDisable(GL_POINT_SIZE);
@@ -84,17 +87,25 @@ struct Ray{
 
 int main()
 {
-
-
+    glm::vec4 BColor = glm::vec4(255.0f,0.0f,0.0f,1.0f);
     
     Window GameWindow;
-    Ray Light(glm::vec3(-1.0f,0.0f,0.0f));
-    Light.BufferPos();
+    vector<Ray> LightRays;
+
+    for (auto [i, j] = tuple{0,0}; i < 6; i++) {
+        Ray Light(glm::vec3(0.0f, j ,0.0f));
+        Light.BufferPos();
+        LightRays.push_back(Light);
+        j = j + 80.0f;
+    }
+
     Shader ourShader("Shaders/Shader.vs", "Shaders/Shader.fs");
 
+    glm::mat4 ortho = glm::ortho(0.0f, float(GameWindow.width), 0.0f, float(GameWindow.length), -1.0f, 100.0f);
 
 
-    circle(0.0f, 0.0f, 0.5f);
+
+    circle(700.0f, 200.0f, 100.0f);
 
     unsigned int VBO, VAO;
     glGenVertexArrays(1, &VAO);
@@ -115,12 +126,18 @@ int main()
 
         
         ourShader.use();
+        ourShader.mat4("ortho", ortho);
+
         ourShader.mat4("model", glm::mat4(1.0f));
+        ourShader.vec4("ourColor", BColor);
+        
         glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLE_FAN, 0, BlackholeVertices.size()/3);
         glBindVertexArray(0);
 
-        Light.draw(glm::vec3(0.002f,0.0f,0.0f), ourShader);
+        for (int i = 0; i < LightRays.size(); i++){
+            LightRays[i].draw(glm::vec3(0.25f, 0.0f, 0.0f), ourShader);
+        }
 
         glfwSwapBuffers(GameWindow.window);
         glfwPollEvents();
