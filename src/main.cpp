@@ -6,6 +6,7 @@
 #include <cmath>
 #include <gl/GL.h>
 #include <tuple>
+#include <memory>
 
 using namespace std; 
 
@@ -47,39 +48,74 @@ struct Window {
 };
 
 struct Ray{
-    glm::vec3 pos;
-    unsigned int VAO, VBO;
+    unsigned int VAO;
+    GLuint SSBO, SSBO2;
     glm::mat4 model = glm::mat4(1.0f);
     glm::vec4 color = glm::vec4(255.0f,255.0f,255.0f,1.0f);
+    int amount;
+    vector<glm::vec4> particles;
+    int windowLength;
+    glm::vec3 translation;
+    std::unique_ptr<glm::mat4[]> modelMatrices;
 
-    Ray(glm::vec3 position) {
-        pos = position;
+    Ray(glm::vec4 Postranslation, int amountofRays, int GamewindowLength) {
+        amount = amountofRays;
+        windowLength = GamewindowLength;
+        translation = Postranslation;
+        modelMatrices = std::make_unique<glm::mat4[]>(amountofRays);
     }
+
+    void CreateParticles() {
+        for(auto [i, j] = tuple{0,0}; i < amount; i++){
+            particles.push_back(glm::vec4(0.0f, j, 0.0f, 0.0f));
+            j = j + float(windowLength/amount);
+
+            //if (i == 0){
+            //    model = glm::mat4(1.0f);
+            //    modelMatrices[i] = model;
+            //    continue;
+            //}
+
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, translation);
+            modelMatrices[i] = model;
+
+        }
+    }
+
 
     void BufferPos() {
+
+
+
         glGenVertexArrays(1, &VAO);
-        glGenBuffers(1, &VBO);
-    
+        glCreateBuffers(1, &SSBO2);
+        glNamedBufferStorage(SSBO2, sizeof(glm::vec4) * particles.size() , (const void*)particles.data() , GL_DYNAMIC_STORAGE_BIT);
         glBindVertexArray(VAO);
-        glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(pos), &pos[0], GL_STATIC_DRAW);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-        glEnableVertexAttribArray(0);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, SSBO2);
+       
+
+        
+        glCreateBuffers(1, &SSBO);
+        glNamedBufferStorage(SSBO, sizeof(glm::mat4) * amount, modelMatrices.get() /*&modelMatrices[0]*/ , GL_DYNAMIC_STORAGE_BIT);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, SSBO);
+
     }
 
-    void draw(glm::vec3 translation, Shader Obj) {
-        
-        
-        model = glm::translate(model, translation);
-        Obj.mat4("model", model);
+    void draw(Shader Obj) {
+                
         Obj.vec4("ourColor", color);
+        Obj.setBool("isInstanced", true);
 
 
         glEnable(GL_POINT_SIZE);
         glPointSize(6.0f);
         glBindVertexArray(VAO);
-        glDrawArrays(GL_POINTS, 0, 1);
+        glDrawArraysInstanced(GL_POINTS, 0, 1, amount);
         glDisable(GL_POINT_SIZE);
+
+
+
     }
     
 };
@@ -90,14 +126,11 @@ int main()
     glm::vec4 BColor = glm::vec4(255.0f,0.0f,0.0f,1.0f);
     
     Window GameWindow;
-    vector<Ray> LightRays;
 
-    for (auto [i, j] = tuple{0,0}; i < 6; i++) {
-        Ray Light(glm::vec3(0.0f, j ,0.0f));
-        Light.BufferPos();
-        LightRays.push_back(Light);
-        j = j + 80.0f;
-    }
+    Ray Light( glm::vec4(0.25f, 0.0f, 0.0f, 0.0f), 6, GameWindow.length);
+    Light.CreateParticles();
+    Light.BufferPos();
+
 
     Shader ourShader("Shaders/Shader.vs", "Shaders/Shader.fs");
 
@@ -128,16 +161,14 @@ int main()
         ourShader.use();
         ourShader.mat4("ortho", ortho);
 
-        ourShader.mat4("model", glm::mat4(1.0f));
+        ourShader.setBool("isInstanced", false);
         ourShader.vec4("ourColor", BColor);
         
         glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLE_FAN, 0, BlackholeVertices.size()/3);
         glBindVertexArray(0);
 
-        for (int i = 0; i < LightRays.size(); i++){
-            LightRays[i].draw(glm::vec3(0.25f, 0.0f, 0.0f), ourShader);
-        }
+        Light.draw(ourShader);
 
         glfwSwapBuffers(GameWindow.window);
         glfwPollEvents();
