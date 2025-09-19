@@ -6,7 +6,8 @@ Blackhole-Simulation
 For this version am making a simple Schwarzschild black hole
 ### Things to do:
  - [x] Moving Particle
- - [ ] Black hole physics 
+ - [x] Instance Rendering
+ - [x] Black hole physics 
 
 
 ## 3D Version
